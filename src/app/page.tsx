@@ -110,36 +110,39 @@ function HomeClient() {
   }, []);
 
   // 处理收藏数据更新的函数
-  const updateFavoriteItems = useCallback(async (allFavorites: Record<string, any>) => {
-    const allPlayRecords = await getAllPlayRecords();
+  const updateFavoriteItems = useCallback(
+    async (allFavorites: Record<string, any>) => {
+      const allPlayRecords = await getAllPlayRecords();
 
-    // 根据保存时间排序（从近到远）
-    const sorted = Object.entries(allFavorites)
-      .sort(([, a], [, b]) => b.save_time - a.save_time)
-      .map(([key, fav]) => {
-        const plusIndex = key.indexOf('+');
-        const source = key.slice(0, plusIndex);
-        const id = key.slice(plusIndex + 1);
+      // 根据保存时间排序（从近到远）
+      const sorted = Object.entries(allFavorites)
+        .sort(([, a], [, b]) => b.save_time - a.save_time)
+        .map(([key, fav]) => {
+          const plusIndex = key.indexOf('+');
+          const source = key.slice(0, plusIndex);
+          const id = key.slice(plusIndex + 1);
 
-        // 查找对应的播放记录，获取当前集数
-        const playRecord = allPlayRecords[key];
-        const currentEpisode = playRecord?.index;
+          // 查找对应的播放记录，获取当前集数
+          const playRecord = allPlayRecords[key];
+          const currentEpisode = playRecord?.index;
 
-        return {
-          id,
-          source,
-          title: fav.title,
-          year: fav.year,
-          poster: fav.cover,
-          episodes: fav.total_episodes,
-          source_name: fav.source_name,
-          currentEpisode,
-          search_title: fav?.search_title,
-          origin: fav?.origin,
-        } as FavoriteItem;
-      });
-    setFavoriteItems(sorted);
-  }, []);
+          return {
+            id,
+            source,
+            title: fav.title,
+            year: fav.year,
+            poster: fav.cover,
+            episodes: fav.total_episodes,
+            source_name: fav.source_name,
+            currentEpisode,
+            search_title: fav?.search_title,
+            origin: fav?.origin,
+          } as FavoriteItem;
+        });
+      setFavoriteItems(sorted);
+    },
+    []
+  );
 
   // 当切换到收藏夹时加载收藏数据（使用 ref 防止重复加载）
   useEffect(() => {
@@ -256,30 +259,30 @@ function HomeClient() {
                 <ScrollableRow>
                   {loading
                     ? // 加载状态显示灰色占位数据
-                    Array.from({ length: 8 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                      >
-                        <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2' />
-                        <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4' />
-                      </div>
-                    ))
+                      Array.from({ length: 8 }).map((_, index) => (
+                        <div
+                          key={index}
+                          className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                        >
+                          <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2' />
+                          <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4' />
+                        </div>
+                      ))
                     : hotMovies.map((movie) => (
-                      <div
-                        key={movie.id}
-                        className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                      >
-                        <VideoCard
-                          id={movie.id}
-                          poster={movie.poster}
-                          title={movie.title}
-                          year={movie.year}
-                          type='movie'
-                          from='douban'
-                        />
-                      </div>
-                    ))}
+                        <div
+                          key={movie.id}
+                          className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                        >
+                          <VideoCard
+                            id={movie.id}
+                            poster={movie.poster}
+                            title={movie.title}
+                            year={movie.year}
+                            type='movie'
+                            from='douban'
+                          />
+                        </div>
+                      ))}
                 </ScrollableRow>
               </section>
 
@@ -300,29 +303,29 @@ function HomeClient() {
                 <ScrollableRow>
                   {loading
                     ? Array.from({ length: 8 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                      >
-                        <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2' />
-                        <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4' />
-                      </div>
-                    ))
+                        <div
+                          key={index}
+                          className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                        >
+                          <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2' />
+                          <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4' />
+                        </div>
+                      ))
                     : hotTvShows.map((tvShow) => (
-                      <div
-                        key={tvShow.id}
-                        className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                      >
-                        <VideoCard
-                          id={tvShow.id}
-                          poster={tvShow.poster}
-                          title={tvShow.title}
-                          year={tvShow.year}
-                          type='tv'
-                          from='douban'
-                        />
-                      </div>
-                    ))}
+                        <div
+                          key={tvShow.id}
+                          className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                        >
+                          <VideoCard
+                            id={tvShow.id}
+                            poster={tvShow.poster}
+                            title={tvShow.title}
+                            year={tvShow.year}
+                            type='tv'
+                            from='douban'
+                          />
+                        </div>
+                      ))}
                 </ScrollableRow>
               </section>
 
@@ -343,29 +346,29 @@ function HomeClient() {
                 <ScrollableRow>
                   {loading
                     ? Array.from({ length: 8 }).map((_, index) => (
-                      <div
-                        key={index}
-                        className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                      >
-                        <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2' />
-                        <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4' />
-                      </div>
-                    ))
+                        <div
+                          key={index}
+                          className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                        >
+                          <div className='aspect-[2/3] bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse mb-2' />
+                          <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4' />
+                        </div>
+                      ))
                     : hotVarietyShows.map((varietyShow) => (
-                      <div
-                        key={varietyShow.id}
-                        className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
-                      >
-                        <VideoCard
-                          id={varietyShow.id}
-                          poster={varietyShow.poster}
-                          title={varietyShow.title}
-                          year={varietyShow.year}
-                          type='tv'
-                          from='douban'
-                        />
-                      </div>
-                    ))}
+                        <div
+                          key={varietyShow.id}
+                          className='min-w-[96px] w-24 sm:min-w-[180px] sm:w-44'
+                        >
+                          <VideoCard
+                            id={varietyShow.id}
+                            poster={varietyShow.poster}
+                            title={varietyShow.title}
+                            year={varietyShow.year}
+                            type='tv'
+                            from='douban'
+                          />
+                        </div>
+                      ))}
                 </ScrollableRow>
               </section>
 
@@ -414,9 +417,9 @@ function HomeClient() {
 
                         // 找到当前星期对应的番剧数据，并过滤掉没有图片的
                         const todayAnimes =
-                          bangumiCalendarData.find(
-                            (item) => item.weekday.en === currentWeekday
-                          )?.items.filter((anime) => anime.images) || [];
+                          bangumiCalendarData
+                            .find((item) => item.weekday.en === currentWeekday)
+                            ?.items.filter((anime) => anime.images) || [];
 
                         return todayAnimes.map((anime, index) => (
                           <div

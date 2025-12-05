@@ -7,17 +7,30 @@ export const runtime = 'nodejs';
 /**
  * GET /api/ad-filter
  * 获取自定义去广告代码配置（公开接口，无需认证）
- * 返回代码内容和版本号，客户端通过版本号判断是否需要更新缓存
+ * 支持两种模式：
+ * - 不带参数：只返回版本号，用于检查更新
+ * - ?full=true：返回完整代码和版本号
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const config = await getConfig();
+    const { searchParams } = new URL(request.url);
+    const full = searchParams.get('full') === 'true';
 
-    // 返回自定义去广告代码和版本号
-    return NextResponse.json({
-      code: config.SiteConfig?.CustomAdFilterCode || '',
-      version: config.SiteConfig?.CustomAdFilterVersion || 0,
-    });
+    const version = config.SiteConfig?.CustomAdFilterVersion || 0;
+
+    if (full) {
+      // 返回完整代码和版本号
+      return NextResponse.json({
+        code: config.SiteConfig?.CustomAdFilterCode || '',
+        version,
+      });
+    } else {
+      // 只返回版本号
+      return NextResponse.json({
+        version,
+      });
+    }
   } catch (error) {
     console.error('获取去广告代码配置失败:', error);
     return NextResponse.json(

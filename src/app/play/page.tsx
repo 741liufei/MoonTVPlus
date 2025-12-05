@@ -130,18 +130,28 @@ function PlayPageClient() {
           console.log('使用缓存的去广告代码');
         }
 
-        // 异步从服务器获取最新版本号，检查是否需要更新
-        const response = await fetch('/api/ad-filter');
-        if (!response.ok) {
-          console.warn('获取去广告代码配置失败，使用缓存');
+        // 第一步：先只获取版本号，检查是否需要更新
+        const versionResponse = await fetch('/api/ad-filter');
+        if (!versionResponse.ok) {
+          console.warn('获取去广告代码版本失败，使用缓存');
           return;
         }
 
-        const { code, version } = await response.json();
+        const { version } = await versionResponse.json();
 
-        // 如果版本号不一致或没有缓存，更新缓存
+        // 如果版本号不一致或没有缓存，才获取完整代码
         if (!cachedVersion || parseInt(cachedVersion) !== version) {
-          console.log('检测到去广告代码更新，更新本地缓存');
+          console.log('检测到去广告代码更新（版本 ' + version + '），获取最新代码');
+
+          // 第二步：获取完整代码
+          const fullResponse = await fetch('/api/ad-filter?full=true');
+          if (!fullResponse.ok) {
+            console.warn('获取完整去广告代码失败，使用缓存');
+            return;
+          }
+
+          const { code } = await fullResponse.json();
+
           if (code) {
             localStorage.setItem('custom_ad_filter_code_cache', code);
             localStorage.setItem('custom_ad_filter_version_cache', version.toString());
@@ -152,7 +162,7 @@ function PlayPageClient() {
             localStorage.removeItem('custom_ad_filter_version_cache');
           }
         } else {
-          console.log('去广告代码已是最新版本');
+          console.log('去广告代码已是最新版本（版本 ' + version + '）');
         }
       } catch (error) {
         console.error('获取去广告代码配置失败:', error);
