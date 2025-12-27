@@ -53,3 +53,6 @@ public/workbox-*.js.map
 
 /.claude
 /.vscode
+/.github/
+/.husky/
+/.vscode/

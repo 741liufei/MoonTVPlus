@@ -85,7 +85,100 @@
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mtvpls/MoonTVPlus)
 
-### Kvrocks 存储（推荐）
+### Docker Compose 一键部署（推荐）
+
+使用 Docker Compose 可以一次性部署 MoonTV 主服务、存储服务、弹幕服务和盘搜服务。
+
+#### 部署步骤
+
+1. 克隆项目或下载 `docker-compose.yml` 和 `.env.example` 文件
+2. 复制 `.env.example` 为 `.env` 并修改配置：
+   ```bash
+   cp .env.example .env
+   ```
+3. 编辑 `.env` 文件，至少需要修改以下配置：
+   ```env
+   # 站长账号配置（必填）
+   USERNAME=admin
+   PASSWORD=your_secure_password
+   
+   # 弹幕 API Token（建议修改）
+   DANMAKU_API_TOKEN=your_random_token
+   ```
+4. 启动所有服务：
+   ```bash
+   docker-compose up -d
+   ```
+
+#### 服务说明
+
+启动后将包含以下服务：
+
+- **MoonTV 主服务**：`http://localhost:3000` - 影视聚合播放器主应用
+- **Kvrocks 存储**：用于存储播放记录、收藏等数据
+- **弹幕 API**：`http://localhost:9321` - 提供弹幕搜索和加载功能
+- **盘搜服务**：`http://localhost:8080` - 网盘资源搜索服务
+
+所有服务在同一个 Docker 网络中，无需额外配置即可互相访问。
+
+#### 完整 docker-compose.yml 示例
+
+```yml
+services:
+  moontv-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: moontvplus:local
+    container_name: moontv-core
+    restart: on-failure
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    networks:
+      - moontv-network
+    depends_on:
+      - moontv-kvrocks
+      - danmu-api
+      - pansou
+  danmu-api:
+    image: logvar/danmu-api:latest
+    container_name: danmu-api
+    restart: unless-stopped
+    ports:
+      - '9321:9321'
+    environment:
+      - TOKEN=87654321
+      - ADMIN_TOKEN=test1234
+    networks:
+      - moontv-network
+  pansou:
+    image: ghcr.io/fish2018/pansou-web
+    container_name: pansou
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    networks:
+      - moontv-network
+  moontv-kvrocks:
+    image: apache/kvrocks
+    container_name: moontv-kvrocks
+    restart: unless-stopped
+    volumes:
+      - kvrocks-data:/var/lib/kvrocks
+    networks:
+      - moontv-network
+networks:
+  moontv-network:
+    driver: bridge
+volumes:
+  kvrocks-data:
+```
+
+### 其他存储方式部署
+
+#### 使用 Redis 存储（有一定的丢数据风险）
 
 ```yml
 services:
@@ -95,6 +188,8 @@ services:
     restart: on-failure
     ports:
       - '3000:3000'
+    env_file:
+      - .env
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
@@ -119,7 +214,9 @@ volumes:
   kvrocks-data:
 ```
 
-### Redis 存储（有一定的丢数据风险）
+#### 使用 Redis 存储（有一定的丢数据风险）
+
+如果你想使用 Redis 替代 Kvrocks，修改 docker-compose.yml：
 
 ```yml
 services:
@@ -129,6 +226,8 @@ services:
     restart: on-failure
     ports:
       - '3000:3000'
+    env_file:
+      - .env
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
@@ -152,7 +251,9 @@ networks:
     driver: bridge
 ```
 
-### Upstash 存储
+#### 使用 Upstash 存储
+
+如果你想使用 Upstash 云存储服务：
 
 1. 在 [upstash](https://upstash.com/) 注册账号并新建一个 Redis 实例，名称任意。
 2. 复制新数据库的 **HTTPS ENDPOINT 和 TOKEN**
@@ -165,6 +266,8 @@ services:
     restart: on-failure
     ports:
       - '3000:3000'
+    env_file:
+      - .env
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
@@ -228,6 +331,8 @@ dockge/komodo 等 docker compose UI 也有自动更新功能
 
 ## 环境变量
 
+### 基础配置
+
 | 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
 | ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | USERNAME                            | 站长账号           | 任意字符串                       | 无默认，必填字段                                                                                                                     |
@@ -235,11 +340,50 @@ dockge/komodo 等 docker compose UI 也有自动更新功能
 | SITE_BASE                           | 站点 url                                                     |       形如 https://example.com                  | 空                                                                                                                     |
 | NEXT_PUBLIC_SITE_NAME               | 站点名称                                     | 任意字符串                       | MoonTV                                                                                                                     |
 | ANNOUNCEMENT                        | 站点公告                                     | 任意字符串                       | 本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。 |
+
+### 存储配置
+
+| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
+| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | NEXT_PUBLIC_STORAGE_TYPE            | 播放记录/收藏的存储方式                      | redis、kvrocks、upstash | 无默认，必填字段                                                                                                               |
 | KVROCKS_URL                           | kvrocks 连接 url                               | 连接 url                         | 空                                                                                                                         |
 | REDIS_URL                           | redis 连接 url                               | 连接 url                         | 空                                                                                                                         |
 | UPSTASH_URL                         | upstash redis 连接 url                       | 连接 url                         | 空                                                                                                                         |
 | UPSTASH_TOKEN                       | upstash redis 连接 token                     | 连接 token                       | 空                                                                                                                         |
+
+### 弹幕配置
+
+使用 Docker Compose 一键部署时，弹幕服务已自动配置，无需手动设置 `DANMAKU_API_BASE`。
+
+| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
+| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| DANMAKU_API_BASE | 弹幕 API 服务地址 | URL | http://danmu-api:9321（Docker Compose 部署时自动配置） |
+| DANMAKU_API_TOKEN | 弹幕 API 访问 Token，需与弹幕服务的 TOKEN 环境变量一致 | 任意字符串 | 87654321 |
+| NEXT_PUBLIC_DANMAKU_CACHE_EXPIRE_MINUTES | 弹幕缓存失效时间（分钟数，设为 0 时不缓存） | 0 或正整数 | 4320（3天） |
+
+**弹幕服务配置说明：**
+- 弹幕服务使用 [logvar/danmu-api](https://github.com/huangxd-/danmu_api) 镜像
+- 默认端口：9321
+- 环境变量：
+  - `TOKEN`：API 访问令牌，需与 MoonTV 的 `DANMAKU_API_TOKEN` 一致
+  - `ADMIN_TOKEN`：管理员令牌，用于管理弹幕数据
+  - `SOURCE_ORDER` 或 `PLATFORM_ORDER`：建议配置以获取更多弹幕源
+
+### 盘搜配置
+
+使用 Docker Compose 一键部署时，盘搜服务已自动启动，访问地址为 `http://localhost:8080`。
+
+**盘搜服务说明：**
+- 盘搜服务使用 [ghcr.io/fish2018/pansou-web](https://github.com/fish2018/pansou-web) 镜像
+- 默认端口：8080（容器内为 80）
+- 无需额外配置，开箱即用
+
+### 其他功能配置
+
+### 其他功能配置
+
+| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
+| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | NEXT_PUBLIC_SEARCH_MAX_PAGE         | 搜索接口可拉取的最大页数                     | 1-50                             | 5                                                                                                                          |
 | NEXT_PUBLIC_DOUBAN_PROXY_TYPE       | 豆瓣数据源请求方式                           | 见下方                           | direct                                                                                                                     |
 | NEXT_PUBLIC_DOUBAN_PROXY            | 自定义豆瓣数据代理 URL                       | url prefix                       | (空)                                                                                                                       |

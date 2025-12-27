@@ -1,0 +1,50 @@
+services:
+  moontv-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: moontvplus:local
+    container_name: moontv-core
+    restart: on-failure
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    networks:
+      - moontv-network
+    depends_on:
+      - moontv-kvrocks
+      - danmu-api
+      - pansou
+  danmu-api:
+    image: logvar/danmu-api:latest
+    container_name: danmu-api
+    restart: unless-stopped
+    ports:
+      - '9321:9321'
+    environment:
+      - TOKEN=87654321
+      - ADMIN_TOKEN=test1234
+    networks:
+      - moontv-network
+  pansou:
+    image: ghcr.io/fish2018/pansou-web
+    container_name: pansou
+    restart: unless-stopped
+    ports:
+      - '8081:80'
+    networks:
+      - moontv-network
+  moontv-kvrocks:
+    image: apache/kvrocks
+    container_name: moontv-kvrocks
+    restart: unless-stopped
+    volumes:
+      - kvrocks-data:/var/lib/kvrocks
+    networks:
+      - moontv-network
+networks:
+  moontv-network:
+    driver: bridge
+volumes:
+  kvrocks-data:
