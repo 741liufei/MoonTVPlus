@@ -1,0 +1,25 @@
+services:
+  moontv-core:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    image: moontvplus:dev
+    container_name: moontv-core-dev
+    restart: on-failure
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./config/moontv:/app/config
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - moontv-network
+    depends_on:
+      - moontv-kvrocks
+      - danmu-api
+      - pansou
+    command: pnpm run dev
