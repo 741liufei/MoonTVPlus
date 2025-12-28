@@ -10,7 +10,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # 安装所有依赖（含 devDependencies，后续会裁剪）
-RUN pnpm install --frozen-lockfile
+# 同时预装 socket.io 避免 runner 阶段重复安装
+RUN pnpm install --frozen-lockfile && \
+    pnpm add socket.io@^4.8.1 socket.io-client@^4.8.1
 
 # ---- 第 2 阶段：构建项目 ----
 FROM node:24-alpine AS builder
@@ -55,8 +57,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# 安装 Socket.IO 相关依赖（standalone 模式不会自动包含）
-RUN pnpm add socket.io@^4.8.1 socket.io-client@^4.8.1 --prod
+# 从 deps 阶段复制 node_modules（包含 socket.io）
+COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 # 切换到非特权用户
 USER nextjs

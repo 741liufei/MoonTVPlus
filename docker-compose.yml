@@ -2,20 +2,27 @@ services:
   moontv-core:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: moontvplus:local
+      dockerfile: Dockerfile.dev
+    image: moontvplus:dev
     container_name: moontv-core
     restart: on-failure
     ports:
       - '3000:3000'
     env_file:
       - .env
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./config/moontv:/app/config
+      - /app/node_modules
+      - /app/.next
     networks:
       - moontv-network
     depends_on:
       - moontv-kvrocks
       - danmu-api
       - pansou
+    command: pnpm run dev
   danmu-api:
     image: logvar/danmu-api:latest
     container_name: danmu-api
@@ -25,6 +32,9 @@ services:
     environment:
       - TOKEN=87654321
       - ADMIN_TOKEN=test1234
+      - ENV_FILE_PATH=/app/config/.env
+    volumes:
+      - ./config/danmu-api:/app/config
     networks:
       - moontv-network
   pansou:
@@ -33,6 +43,8 @@ services:
     restart: unless-stopped
     ports:
       - '8081:80'
+    volumes:
+      - ./config/pansou:/app/config
     networks:
       - moontv-network
   moontv-kvrocks:
