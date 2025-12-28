@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     const {
       SiteName,
       Announcement,
+      SiteBase,
       SearchDownstreamMaxPage,
       SiteInterfaceCacheTime,
       DoubanProxyType,
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     } = body as {
       SiteName: string;
       Announcement: string;
+      SiteBase?: string;
       SearchDownstreamMaxPage: number;
       SiteInterfaceCacheTime: number;
       DoubanProxyType: string;
@@ -106,6 +108,7 @@ export async function POST(request: NextRequest) {
     if (
       typeof SiteName !== 'string' ||
       typeof Announcement !== 'string' ||
+      (SiteBase !== undefined && typeof SiteBase !== 'string') ||
       typeof SearchDownstreamMaxPage !== 'number' ||
       typeof SiteInterfaceCacheTime !== 'number' ||
       typeof DoubanProxyType !== 'string' ||
@@ -157,6 +160,7 @@ export async function POST(request: NextRequest) {
     adminConfig.SiteConfig = {
       SiteName,
       Announcement,
+      SiteBase,
       SearchDownstreamMaxPage,
       SiteInterfaceCacheTime,
       DoubanProxyType,

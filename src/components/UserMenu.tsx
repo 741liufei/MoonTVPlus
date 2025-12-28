@@ -56,6 +56,12 @@ export const UserMenu: React.FC = () => {
   const [subscribeUrl, setSubscribeUrl] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
   const [adFilterEnabled, setAdFilterEnabled] = useState(true); // 去广告开关，默认开启
+  const [networkInfo, setNetworkInfo] = useState<{
+    localIP: string | null;
+    publicIP: string | null;
+    bestURL: string;
+    recommendation: string;
+  } | null>(null);
 
   // Body 滚动锁定 - 使用 overflow 方式避免布局问题
   useEffect(() => {
@@ -217,6 +223,19 @@ export const UserMenu: React.FC = () => {
       }
     } catch (error) {
       console.error('获取订阅URL失败:', error);
+    }
+  };
+
+  // 获取网络信息
+  const fetchNetworkInfo = async () => {
+    try {
+      const response = await fetch('/api/network-info');
+      if (response.ok) {
+        const data = await response.json();
+        setNetworkInfo(data);
+      }
+    } catch (error) {
+      console.error('获取网络信息失败:', error);
     }
   };
 
@@ -387,8 +406,8 @@ export const UserMenu: React.FC = () => {
     setIsOpen(false);
     setIsSubscribeOpen(true);
     setCopySuccess(false);
-    // 懒加载:打开面板时才请求订阅URL
-    await fetchSubscribeUrl();
+    // 懒加载:打开面板时才请求订阅URL和网络信息
+    await Promise.all([fetchSubscribeUrl(), fetchNetworkInfo()]);
   };
 
   const handleCloseSubscribe = () => {
@@ -1224,11 +1243,10 @@ export const UserMenu: React.FC = () => {
 
               {/* 成功/失败提示 */}
               {clearCacheMessage && (
-                <div className={`text-sm p-3 rounded-lg border ${
-                  clearCacheMessage.includes('成功')
-                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
-                    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
-                }`}>
+                <div className={`text-sm p-3 rounded-lg border ${clearCacheMessage.includes('成功')
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-700 dark:text-red-300'
+                  }`}>
                   {clearCacheMessage}
                 </div>
               )}
@@ -1340,6 +1358,34 @@ export const UserMenu: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* 网络信息 */}
+            {networkInfo && (
+              <div className='p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800'>
+                <h4 className='text-sm font-medium text-blue-800 dark:text-blue-300 mb-2'>
+                  网络信息
+                </h4>
+                <div className='space-y-1.5 text-xs'>
+                  {networkInfo.localIP && (
+                    <div className='flex justify-between'>
+                      <span className='text-gray-600 dark:text-gray-400'>局域网IP:</span>
+                      <span className='font-mono text-gray-900 dark:text-gray-100'>{networkInfo.localIP}</span>
+                    </div>
+                  )}
+                  {networkInfo.publicIP && (
+                    <div className='flex justify-between'>
+                      <span className='text-gray-600 dark:text-gray-400'>公网IP:</span>
+                      <span className='font-mono text-gray-900 dark:text-gray-100'>{networkInfo.publicIP}</span>
+                    </div>
+                  )}
+                  <div className='pt-2 mt-2 border-t border-blue-200 dark:border-blue-800'>
+                    <p className='text-blue-700 dark:text-blue-300'>
+                      {networkInfo.recommendation}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 底部说明 */}

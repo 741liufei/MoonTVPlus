@@ -51,6 +51,15 @@ export async function middleware(request: NextRequest) {
 
     // 签名验证通过即可
     if (isValidSignature) {
+      // 检查管理页面访问权限：只有 owner 和 admin 可以访问
+      if (pathname.startsWith('/admin')) {
+        const role = authInfo.role || 'user';
+        if (role !== 'owner' && role !== 'admin') {
+          // 普通用户尝试访问管理页面，重定向到首页
+          const homeUrl = new URL('/', request.url);
+          return NextResponse.redirect(homeUrl);
+        }
+      }
       return NextResponse.next();
     }
   }

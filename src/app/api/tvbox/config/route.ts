@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { getAuthInfoFromCookie } from '@/lib/auth';
+import { getConfig } from '@/lib/config';
+import { getBestAccessURL } from '@/lib/network-utils';
 
 export const runtime = 'nodejs';
 
@@ -36,13 +38,18 @@ export async function GET(request: NextRequest) {
   }
 
   // 构建订阅链接
-  // 优先使用 SITE_BASE 环境变量，如果没有则使用前端传来的 origin
-  const siteBase = process.env.SITE_BASE;
   const searchParams = request.nextUrl.searchParams;
   const clientOrigin = searchParams.get('origin');
   const adFilter = searchParams.get('adFilter') === 'true'; // 获取去广告参数
 
-  const baseUrl = siteBase || clientOrigin || request.nextUrl.origin;
+  // 获取数据库配置中的 SiteBase
+  const config = await getConfig();
+  const dbSiteBase = config?.SiteConfig?.SiteBase;
+
+  // 智能获取最佳访问地址
+  // 优先级：SITE_BASE 环境变量 > 数据库配置 > 客户端传来的origin
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+  const baseUrl = await getBestAccessURL(clientOrigin || request.nextUrl.origin, port, dbSiteBase);
 
   // 构建订阅链接，包含 adFilter 参数
   const subscribeUrl = `${baseUrl}/api/tvbox/subscribe?token=${encodeURIComponent(subscribeToken)}&adFilter=${adFilter}`;
