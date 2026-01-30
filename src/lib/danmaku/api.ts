@@ -231,12 +231,12 @@ export function convertDanmakuFormat(
   });
 }
 
-// 默认弹幕设置
+// 默认弹幕设置 (PC端基准)
 export const DEFAULT_DANMAKU_SETTINGS: DanmakuSettings = {
   enabled: true,
   opacity: 1,
   fontSize: 25,
-  speed: 5,
+  speed: 15, // PC端默认极慢
   marginTop: 10,
   marginBottom: 50,
   maxlength: 100,
@@ -245,7 +245,7 @@ export const DEFAULT_DANMAKU_SETTINGS: DanmakuSettings = {
   synchronousPlayback: false,
 };
 
-// 从 localStorage 读取弹幕设置
+// 从 localStorage 读取弹幕设置，并根据设备类型适配默认值
 export function loadDanmakuSettings(): DanmakuSettings {
   if (typeof window === 'undefined') return DEFAULT_DANMAKU_SETTINGS;
 
@@ -254,6 +254,20 @@ export function loadDanmakuSettings(): DanmakuSettings {
     if (saved) {
       const settings = JSON.parse(saved) as DanmakuSettings;
       return { ...DEFAULT_DANMAKU_SETTINGS, ...settings };
+    }
+
+    // 如果没有保存的设置，根据设备类型返回适配的默认值
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isMobile = /iphone|ipad|ipod|android|mobile/.test(userAgent);
+
+    if (isMobile) {
+      // 移动端/iOS 默认配置
+      return {
+        ...DEFAULT_DANMAKU_SETTINGS,
+        speed: 10, // 移动端速度稍快一点 (10秒穿过屏幕)，避免在小屏幕上显得过于拖沓
+        fontSize: 20, // 移动端字体稍微调小
+        marginBottom: 20, // 移动端底部边距减小
+      };
     }
   } catch (error) {
     console.error('读取弹幕设置失败:', error);
