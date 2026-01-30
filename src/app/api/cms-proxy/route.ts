@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getConfig } from '@/lib/config';
 import { db } from '@/lib/db';
-import { OpenListClient } from '@/lib/openlist.client';
 import {
   getCachedMetaInfo,
   MetaInfo,
@@ -98,17 +97,6 @@ export async function GET(request: NextRequest) {
 
       // 处理返回数据，替换播放链接为代理链接
       const processedData = processPlayUrls(data, origin);
-
-      // 输出处理后的第一个视频的播放信息（用于调试）
-      if (processedData.list && processedData.list.length > 0) {
-        const firstItem = processedData.list[0];
-        console.log('第一个视频处理后的播放信息:', {
-          vod_name: firstItem.vod_name,
-          vod_play_from: firstItem.vod_play_from,
-          vod_play_url_length: firstItem.vod_play_url?.length || 0,
-          vod_play_url_preview: firstItem.vod_play_url?.substring(0, 200) || '',
-        });
-      }
 
       return NextResponse.json(processedData, {
         headers: {
@@ -271,22 +259,15 @@ async function handleOpenListProxy(request: NextRequest) {
     );
   }
 
-  const rootPath = openListConfig.RootPath || '/';
-  const client = new OpenListClient(
-    openListConfig.URL,
-    openListConfig.Username,
-    openListConfig.Password
-  );
-
   // 读取 metainfo (从数据库或缓存)
-  let metaInfo: MetaInfo | null = getCachedMetaInfo(rootPath);
+  let metaInfo: MetaInfo | null = getCachedMetaInfo();
 
   if (!metaInfo) {
     try {
       const metainfoJson = await db.getGlobalValue('video.metainfo');
       if (metainfoJson) {
         metaInfo = JSON.parse(metainfoJson) as MetaInfo;
-        setCachedMetaInfo(rootPath, metaInfo);
+        setCachedMetaInfo(metaInfo);
       }
     } catch (error) {
       return NextResponse.json(
@@ -307,12 +288,12 @@ async function handleOpenListProxy(request: NextRequest) {
   if (wd) {
     const results = Object.entries(metaInfo.folders)
       .filter(
-        ([folderName, info]) =>
-          folderName.toLowerCase().includes(wd.toLowerCase()) ||
+        ([_key, info]) =>
+          info.folderName.toLowerCase().includes(wd.toLowerCase()) ||
           info.title.toLowerCase().includes(wd.toLowerCase())
       )
-      .map(([folderName, info]) => ({
-        vod_id: folderName,
+      .map(([key, info]) => ({
+        vod_id: key,
         vod_name: info.title,
         vod_pic: getTMDBImageUrl(info.poster_path),
         vod_remarks: info.media_type === 'movie' ? '电影' : '剧集',
@@ -333,8 +314,8 @@ async function handleOpenListProxy(request: NextRequest) {
 
   // 详情模式
   if (ids) {
-    const folderName = ids;
-    const info = metaInfo.folders[folderName];
+    const key = ids;
+    const info = metaInfo.folders[key];
 
     if (!info) {
       return NextResponse.json(
@@ -342,6 +323,8 @@ async function handleOpenListProxy(request: NextRequest) {
         { status: 200 }
       );
     }
+
+    const folderName = info.folderName;
 
     // 获取视频详情
     try {
@@ -376,7 +359,7 @@ async function handleOpenListProxy(request: NextRequest) {
         total: 1,
         list: [
           {
-            vod_id: folderName,
+            vod_id: key,
             vod_name: info.title,
             vod_pic: getTMDBImageUrl(info.poster_path),
             vod_remarks: info.media_type === 'movie' ? '电影' : '剧集',
@@ -399,8 +382,8 @@ async function handleOpenListProxy(request: NextRequest) {
 
   // 默认返回所有视频
   const results = Object.entries(metaInfo.folders).map(
-    ([folderName, info]) => ({
-      vod_id: folderName,
+    ([key, info]) => ({
+      vod_id: key,
       vod_name: info.title,
       vod_pic: getTMDBImageUrl(info.poster_path),
       vod_remarks: info.media_type === 'movie' ? '电影' : '剧集',

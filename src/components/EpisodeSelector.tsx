@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 
+import { Link as LinkIcon, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, {
   useCallback,
@@ -8,19 +9,20 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Settings } from 'lucide-react';
+
+import type { DanmakuComment,DanmakuSelection } from '@/lib/danmaku/types';
+import { EpisodeFilterConfig,SearchResult } from '@/lib/types';
+import { getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
 
 import DanmakuPanel from '@/components/DanmakuPanel';
 import EpisodeFilterSettings from '@/components/EpisodeFilterSettings';
-import type { DanmakuSelection } from '@/lib/danmaku/types';
-import { SearchResult, EpisodeFilterConfig } from '@/lib/types';
-import { getVideoResolutionFromM3u8, processImageUrl } from '@/lib/utils';
 
 // 定义视频信息类型
 interface VideoInfo {
   quality: string;
   loadSpeed: string;
   pingTime: number;
+  bitrate: string; // 视频码率
   hasError?: boolean; // 添加错误状态标识
 }
 
@@ -44,11 +46,14 @@ interface EpisodeSelectorProps {
   availableSources?: SearchResult[];
   sourceSearchLoading?: boolean;
   sourceSearchError?: string | null;
+  /** 后台源加载状态 */
+  backgroundSourcesLoading?: boolean;
   /** 预计算的测速结果，避免重复测速 */
   precomputedVideoInfo?: Map<string, VideoInfo>;
   /** 弹幕相关 */
   onDanmakuSelect?: (selection: DanmakuSelection) => void;
   currentDanmakuSelection?: DanmakuSelection | null;
+  onUploadDanmaku?: (comments: DanmakuComment[]) => void;
   /** 观影室房员状态 - 禁用选集和换源，但保留弹幕 */
   isRoomMember?: boolean;
   /** 集数过滤配置 */
@@ -73,9 +78,11 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
   availableSources = [],
   sourceSearchLoading = false,
   sourceSearchError = null,
+  backgroundSourcesLoading = false,
   precomputedVideoInfo,
   onDanmakuSelect,
   currentDanmakuSelection,
+  onUploadDanmaku,
   isRoomMember = false,
   episodeFilterConfig = null,
   onFilterConfigUpdate,
@@ -133,6 +140,32 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
 
   // 集数过滤设置弹窗状态
   const [showFilterSettings, setShowFilterSettings] = useState<boolean>(false);
+
+  // 读取本地"优选和测速"开关，默认开启
+  const [optimizationEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('enableOptimization');
+      if (saved !== null) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    return true;
+  });
+
+  // 读取测速超时设置，默认4秒
+  const [speedTestTimeout] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('speedTestTimeout');
+      if (saved !== null) {
+        return Number(saved);
+      }
+    }
+    return 4000;
+  });
 
   // 集数过滤逻辑
   const isEpisodeFiltered = useCallback(
@@ -199,7 +232,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
     setAttemptedSources((prev) => new Set(prev).add(sourceKey));
 
     try {
-      const info = await getVideoResolutionFromM3u8(episodeUrl);
+      const info = await getVideoResolutionFromM3u8(episodeUrl, speedTestTimeout);
       setVideoInfoMap((prev) => new Map(prev).set(sourceKey, info));
     } catch (error) {
       // 失败时保存错误状态
@@ -208,11 +241,12 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
           quality: '错误',
           loadSpeed: '未知',
           pingTime: 0,
+          bitrate: '未知',
           hasError: true,
         })
       );
     }
-  }, []);
+  }, [speedTestTimeout]);
 
   // 当有预计算结果时，先合并到videoInfoMap中
   useEffect(() => {
@@ -245,36 +279,24 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
     }
   }, [precomputedVideoInfo]);
 
-  // 读取本地"优选和测速"开关，默认开启
-  const [optimizationEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('enableOptimization');
-      if (saved !== null) {
-        try {
-          return JSON.parse(saved);
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-    return true;
-  });
-
   // 当切换到换源tab并且有源数据时，异步获取视频信息 - 移除 attemptedSources 依赖避免循环触发
   useEffect(() => {
     const fetchVideoInfosInBatches = async () => {
       if (
         !optimizationEnabled || // 若关闭测速则直接退出
         activeTab !== 'sources' ||
-        availableSources.length === 0 ||
-        currentSource === 'openlist' // 私人影库不进行测速
+        availableSources.length === 0
       )
         return;
 
-      // 筛选出尚未测速的播放源
+      // 筛选出尚未测速的播放源，并排除不需要测速的源（openlist/emby/xiaoya）
       const pendingSources = availableSources.filter((source) => {
         const sourceKey = `${source.source}-${source.id}`;
-        return !attemptedSourcesRef.current.has(sourceKey);
+        // 跳过已测速的源
+        if (attemptedSourcesRef.current.has(sourceKey)) return false;
+        // 跳过不需要测速的源
+        if (source.source === 'openlist' || source.source === 'emby' || source.source.startsWith('emby_') || source.source === 'xiaoya') return false;
+        return true;
       });
 
       if (pendingSources.length === 0) return;
@@ -295,6 +317,46 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
     fetchVideoInfosInBatches();
     // 依赖项保持与之前一致
   }, [activeTab, availableSources, getVideoInfo, optimizationEnabled, initialTestingCompleted, currentSource]);
+
+  // 监听后台加载完成，触发自动测速
+  const prevBackgroundLoadingRef = useRef<boolean>(false);
+  useEffect(() => {
+    // 当后台加载从 true 变为 false 时（即加载完成）
+    if (prevBackgroundLoadingRef.current && !backgroundSourcesLoading) {
+      // 如果当前选项卡在换源位置，触发测速
+      if (activeTab === 'sources' && optimizationEnabled) {
+        // 筛选出尚未测速的播放源，并排除不需要测速的源（openlist/emby/xiaoya）
+        const pendingSources = availableSources.filter((source) => {
+          const sourceKey = `${source.source}-${source.id}`;
+          // 跳过已测速的源
+          if (attemptedSourcesRef.current.has(sourceKey)) return false;
+          // 跳过不需要测速的源
+          if (source.source === 'openlist' || source.source === 'emby' || source.source.startsWith('emby_') || source.source === 'xiaoya') return false;
+          return true;
+        });
+
+        if (pendingSources.length > 0) {
+          const batchSize = Math.ceil(pendingSources.length / 2);
+
+          const fetchInBatches = async () => {
+            for (let start = 0; start < pendingSources.length; start += batchSize) {
+              const batch = pendingSources.slice(start, start + batchSize);
+              await Promise.all(batch.map(getVideoInfo));
+            }
+
+            if (!initialTestingCompleted) {
+              setInitialTestingCompleted(true);
+            }
+          };
+
+          fetchInBatches();
+        }
+      }
+    }
+
+    // 更新前一次的加载状态
+    prevBackgroundLoadingRef.current = backgroundSourcesLoading;
+  }, [backgroundSourcesLoading, activeTab, availableSources, getVideoInfo, optimizationEnabled, initialTestingCompleted, currentSource]);
 
   // 升序分页标签
   const categoriesAsc = useMemo(() => {
@@ -536,6 +598,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
             currentEpisodeIndex={value - 1}
             onDanmakuSelect={onDanmakuSelect}
             currentSelection={currentDanmakuSelection || null}
+            onUploadDanmaku={onUploadDanmaku}
           />
         </div>
       )}
@@ -628,13 +691,24 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                       className={`h-10 min-w-10 px-3 py-2 flex items-center justify-center text-sm font-medium rounded-md transition-all duration-200 whitespace-nowrap font-mono
                         ${isActive
                           ? 'bg-green-500 text-white shadow-lg shadow-green-500/25 dark:bg-green-600'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:scale-105 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/20'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 hover:scale-105 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                         }`.trim()}
                     >
                       {(() => {
                         const title = episodes_titles?.[episodeNumber - 1];
                         if (!title) {
                           return episodeNumber;
+                        }
+                        // 如果是 OVA 格式，直接返回完整标题
+                        if (title.match(/^OVA\s+\d+/i)) {
+                          return title;
+                        }
+                        // 如果匹配 S01E01 格式，提取并返回
+                        const sxxexxMatch = title.match(/[Ss](\d+)[Ee](\d{1,4}(?:\.\d+)?)/);
+                        if (sxxexxMatch) {
+                          const season = sxxexxMatch[1].padStart(2, '0');
+                          const episode = sxxexxMatch[2];
+                          return `S${season}E${episode}`;
                         }
                         // 如果匹配"第X集"、"第X话"、"X集"、"X话"格式，提取中间的数字（支持小数）
                         const match = title.match(/(?:第)?(\d+(?:\.\d+)?)(?:集|话)/);
@@ -732,13 +806,15 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                         }
                         className={`flex items-start gap-3 px-2 py-3 rounded-lg transition-all select-none duration-200 relative
                       ${isCurrentSource
-                            ? 'bg-green-500/10 dark:bg-green-500/20 border-green-500/30 border'
-                            : 'hover:bg-gray-200/50 dark:hover:bg-white/10 hover:scale-[1.02] cursor-pointer'
+                         ? 'bg-green-500/10 dark:bg-green-500/20 border-green-500/30 border'
+                          : 'hover:bg-gray-200/50 dark:hover:bg-white/10 hover:scale-[1.02] cursor-pointer'
                           }`.trim()}
                       >
                         {/* 封面 */}
-                        <div className='flex-shrink-0 w-12 h-20 bg-gray-300 dark:bg-gray-600 rounded overflow-hidden'>
-                          {source.episodes && source.episodes.length > 0 && (
+                        <div className='flex-shrink-0 w-12 h-20 bg-gray-300 dark:bg-gray-600 rounded overflow-hidden flex items-center justify-center'>
+                          {source.source === 'directplay' ? (
+                            <LinkIcon className='w-6 h-6 text-blue-500' />
+                          ) : source.poster ? (
                             <img
                               src={processImageUrl(source.poster)}
                               alt={source.title}
@@ -748,7 +824,7 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                                 target.style.display = 'none';
                               }}
                             />
-                          )}
+                          ) : null}
                         </div>
 
                         {/* 信息区域 */}
@@ -808,7 +884,11 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
 
                           {/* 源名称和集数信息 - 垂直居中 */}
                           <div className='flex items-center justify-between'>
-                            <span className='text-xs px-2 py-1 border border-gray-500/60 rounded text-gray-700 dark:text-gray-300'>
+                            <span className={`text-xs px-2 py-1 border rounded text-gray-700 dark:text-gray-300 ${
+                              source.source === 'xiaoya' ? 'border-blue-500' : source.source === 'openlist' || source.source === 'emby' || source.source?.startsWith('emby_')
+                           ? 'border-yellow-500'
+                                : 'border-gray-500/60'
+                      }`}>
                               {source.source_name}
                             </span>
                             {source.episodes.length > 1 && (
@@ -834,6 +914,11 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                                         <div className='text-orange-600 dark:text-orange-400 font-medium text-xs'>
                                           {videoInfo.pingTime}ms
                                         </div>
+                                        {videoInfo.bitrate && videoInfo.bitrate !== '未知' && (
+                                          <div className='text-purple-600 dark:text-purple-400 font-medium text-xs'>
+                                            {videoInfo.bitrate}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   } else {
@@ -849,8 +934,8 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                             </div>
                             {/* 重新测试按钮 */}
                             {(() => {
-                              // 私人影库不显示重新测试按钮
-                              if (source.source === 'openlist') {
+                              // 私人影库、Emby 和小雅不显示重新测试按钮
+                              if (source.source === 'openlist' || source.source === 'emby' || source.source.startsWith('emby_') || source.source === 'xiaoya') {
                                 return null;
                               }
 
@@ -881,6 +966,15 @@ const EpisodeSelector: React.FC<EpisodeSelectorProps> = ({
                       </div>
                     );
                   })}
+                {/* 后台加载提示 */}
+                {backgroundSourcesLoading && (
+                  <div className='flex items-center justify-center py-6 border-t border-gray-300 dark:border-gray-700'>
+                    <div className='animate-spin rounded-full h-6 w-6 border-b-2 border-green-500'></div>
+                    <span className='ml-2 text-sm text-gray-600 dark:text-gray-300'>
+                      正在加载更多播放源...
+                    </span>
+                  </div>
+                )}
                 <div className='flex-shrink-0 mt-auto pt-2 border-t border-gray-400 dark:border-gray-700'>
                   <button
                     onClick={() => {

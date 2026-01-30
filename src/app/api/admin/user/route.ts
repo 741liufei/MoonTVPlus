@@ -165,9 +165,6 @@ export async function POST(request: NextRequest) {
         // 使用新版本创建用户
         await db.createUserV2(targetUsername!, targetPassword, 'user', tags);
 
-        // 同时在旧版本存储中创建（保持兼容性）
-        await db.registerUser(targetUsername!, targetPassword);
-
         // 不再更新配置，因为用户已经存储在新版本中
         // 构造一个虚拟的targetEntry用于后续逻辑
         targetEntry = {
@@ -298,8 +295,6 @@ export async function POST(request: NextRequest) {
 
         // 使用新版本修改密码（SHA256加密）
         await db.changePasswordV2(targetUsername!, targetPassword);
-        // 同时更新旧版本（保持兼容性）
-        await db.changePassword(targetUsername!, targetPassword);
         break;
       }
       case 'deleteUser': {
@@ -327,8 +322,6 @@ export async function POST(request: NextRequest) {
 
         // 只删除V2存储中的用户
         await db.deleteUserV2(targetUsername!);
-        // 同时删除旧版本（保持兼容性）
-        await db.deleteUser(targetUsername!);
 
         break;
       }
@@ -461,21 +454,9 @@ export async function POST(request: NextRequest) {
         // 权限检查：站长可批量配置所有人的用户组，管理员只能批量配置普通用户
         if (operatorRole !== 'owner') {
           for (const targetUsername of usernames) {
-            // 先从配置中查找
-            let targetUser = adminConfig.UserConfig.Users.find(u => u.username === targetUsername);
-            // 如果配置中没有，从V2存储中查找
-            if (!targetUser) {
-              const userV2 = await db.getUserInfoV2(targetUsername);
-              if (userV2) {
-                targetUser = {
-                  username: targetUsername,
-                  role: userV2.role,
-                  banned: userV2.banned,
-                  tags: userV2.tags,
-                };
-              }
-            }
-            if (targetUser && targetUser.role === 'admin' && targetUsername !== username) {
+            // 从V2存储中查找用户
+            const userV2 = await db.getUserInfoV2(targetUsername);
+            if (userV2 && userV2.role === 'admin' && targetUsername !== username) {
               return NextResponse.json({ error: `管理员无法操作其他管理员 ${targetUsername}` }, { status: 400 });
             }
           }

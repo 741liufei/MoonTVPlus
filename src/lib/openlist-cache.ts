@@ -18,7 +18,8 @@ const VIDEOINFO_CACHE: Map<string, VideoInfoCacheEntry> = new Map();
 
 export interface MetaInfo {
   folders: {
-    [folderName: string]: {
+    [key: string]: {
+      folderName: string; // 原始文件夹名称
       tmdb_id: number;
       title: string;
       poster_path: string | null;
@@ -28,6 +29,8 @@ export interface MetaInfo {
       media_type: 'movie' | 'tv';
       last_updated: number;
       failed?: boolean; // 标记是否搜索失败
+      season_number?: number; // 季度编号（仅电视剧）
+      season_name?: string; // 季度名称（仅电视剧）
     };
   };
   last_refresh: number;
@@ -40,33 +43,36 @@ export interface VideoInfo {
       season?: number;
       title?: string;
       parsed_from: 'videoinfo' | 'filename';
+      isOVA?: boolean;
     };
   };
   last_updated: number;
 }
 
-// MetaInfo 缓存操作
-export function getCachedMetaInfo(rootPath: string): MetaInfo | null {
-  const entry = METAINFO_CACHE.get(rootPath);
+// MetaInfo 缓存操作（使用固定键）
+const METAINFO_CACHE_KEY = 'openlist_meta';
+
+export function getCachedMetaInfo(): MetaInfo | null {
+  const entry = METAINFO_CACHE.get(METAINFO_CACHE_KEY);
   if (!entry) return null;
 
   if (entry.expiresAt <= Date.now()) {
-    METAINFO_CACHE.delete(rootPath);
+    METAINFO_CACHE.delete(METAINFO_CACHE_KEY);
     return null;
   }
 
   return entry.data;
 }
 
-export function setCachedMetaInfo(rootPath: string, data: MetaInfo): void {
-  METAINFO_CACHE.set(rootPath, {
+export function setCachedMetaInfo(data: MetaInfo): void {
+  METAINFO_CACHE.set(METAINFO_CACHE_KEY, {
     expiresAt: Date.now() + METAINFO_CACHE_TTL_MS,
     data,
   });
 }
 
-export function invalidateMetaInfoCache(rootPath: string): void {
-  METAINFO_CACHE.delete(rootPath);
+export function invalidateMetaInfoCache(): void {
+  METAINFO_CACHE.delete(METAINFO_CACHE_KEY);
 }
 
 // VideoInfo 缓存操作

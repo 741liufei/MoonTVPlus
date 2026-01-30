@@ -48,7 +48,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rootPath = openListConfig.RootPath || '/';
     const client = new OpenListClient(
       openListConfig.URL,
       openListConfig.Username,
@@ -62,7 +61,7 @@ export async function GET(request: NextRequest) {
     if (noCache) {
       // noCache 模式：跳过缓存
     } else {
-      metaInfo = getCachedMetaInfo(rootPath);
+      metaInfo = getCachedMetaInfo();
     }
 
     if (!metaInfo) {
@@ -83,7 +82,7 @@ export async function GET(request: NextRequest) {
 
             // 只有在不是 noCache 模式时才更新缓存
             if (!noCache) {
-              setCachedMetaInfo(rootPath, metaInfo);
+              setCachedMetaInfo(metaInfo);
             }
           } catch (parseError) {
             console.error('[OpenList List] JSON 解析或验证失败:', parseError);
@@ -125,19 +124,23 @@ export async function GET(request: NextRequest) {
     const allVideos = Object.entries(metaInfo.folders)
       .filter(([, info]) => includeFailed || !info.failed) // 根据参数过滤失败的视频
       .map(
-        ([folderName, info]) => ({
-          id: folderName,
-          folder: folderName,
-          tmdbId: info.tmdb_id,
-          title: info.title,
-          poster: getTMDBImageUrl(info.poster_path),
-          releaseDate: info.release_date,
-          overview: info.overview,
-          voteAverage: info.vote_average,
-          mediaType: info.media_type,
-          lastUpdated: info.last_updated,
-          failed: info.failed || false,
-        })
+        ([key, info]) => {
+          return {
+            id: key,
+            folder: info.folderName,
+            tmdbId: info.tmdb_id,
+            title: info.title,
+            poster: getTMDBImageUrl(info.poster_path),
+            releaseDate: info.release_date,
+            overview: info.overview,
+            voteAverage: info.vote_average,
+            mediaType: info.media_type,
+            lastUpdated: info.last_updated,
+            failed: info.failed || false,
+            seasonNumber: info.season_number,
+            seasonName: info.season_name,
+          };
+        }
       );
 
     // 按更新时间倒序排序

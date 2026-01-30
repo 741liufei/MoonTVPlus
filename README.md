@@ -4,10 +4,11 @@
   <img src="public/logo.png" alt="MoonTVPlus Logo" width="120">
 </div>
 
+
 > 🎬 **MoonTVPlus** 是基于 [MoonTV v100](https://github.com/MoonTechLab/LunaTV) 二次开发的增强版影视聚合播放器。它在原版基础上新增了外部播放器支持、视频超分、弹幕系统、评论抓取等实用功能，提供更强大的观影体验。
 
 <div align="center">
-  
+
 ![Next.js](https://img.shields.io/badge/Next.js-14-000?logo=nextdotjs)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38bdf8?logo=tailwindcss)
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.x-3178c6?logo=typescript)
@@ -29,6 +30,7 @@
 - 🎭 **观影室**：支持多人同步观影、实时聊天、语音通话等功能（实验性）。
 - 📥 **M3U8完整下载**：通过合并m3u8片段实现完整视频下载。
 - 💾 **服务器离线下载**：支持在服务器端下载视频文件，支持断点续传，提前下载到家秒加载 。
+- 📚 **私人影库**：接入 OpenList或Emby，可打造专属私人影库，亦可观看网盘资源。
 
 ## ✨ 功能特性
 
@@ -49,6 +51,7 @@
   <img src="public/screenshot3.png" alt="项目截图" style="max-width:600px">
 </details>
 
+
 ### 请不要在 B站、小红书、微信公众号、抖音、今日头条或其他中国大陆社交平台发布视频或文章宣传本项目，不授权任何“科技周刊/月刊”类项目或站点收录本项目。
 
 ## 🗺 目录
@@ -58,6 +61,7 @@
 - [配置文件](#配置文件)
 - [自动更新](#自动更新)
 - [环境变量](#环境变量)
+- [外部观影室服务器部署](#外部观影室服务器部署)
 - [弹幕后端部署](#弹幕后端部署)
 - [超分功能说明](#超分功能说明)
 - [AndroidTV 使用](#androidtv-使用)
@@ -70,115 +74,111 @@
 
 ## 技术栈
 
-| 分类      | 主要依赖                                                                                              |
-| --------- | ----------------------------------------------------------------------------------------------------- |
-| 前端框架  | [Next.js 14](https://nextjs.org/) · App Router                                                        |
-| UI & 样式 | [Tailwind&nbsp;CSS 3](https://tailwindcss.com/)                                                       |
-| 语言      | TypeScript 4                                                                                          |
+| 分类      | 主要依赖                                                     |
+| --------- | ------------------------------------------------------------ |
+| 前端框架  | [Next.js 14](https://nextjs.org/) · App Router               |
+| UI & 样式 | [Tailwind&nbsp;CSS 3](https://tailwindcss.com/)              |
+| 语言      | TypeScript 4                                                 |
 | 播放器    | [ArtPlayer](https://github.com/zhw2590582/ArtPlayer) · [HLS.js](https://github.com/video-dev/hls.js/) |
-| 代码质量  | ESLint · Prettier · Jest                                                                              |
-| 部署      | Docker                                                                    |
+| 代码质量  | ESLint · Prettier · Jest                                     |
+| 部署      | Docker                                                       |
 
 ## 部署
 
-本项目**支持 Docker 和Vercel平台** 部署。
+本项目**支持 Docker、Vercel 和 Cloudflare Workers 平台** 部署。
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mtvpls/MoonTVPlus)
 
-### Docker Compose 一键部署（推荐）
+**一键部署到zeabur**
 
-使用 Docker Compose 可以一次性部署 MoonTV 主服务、存储服务、弹幕服务和盘搜服务。
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/SCHCAY/deploy)
 
-#### 部署步骤
 
-1. 克隆项目或下载 `docker-compose.yml` 和 `.env.example` 文件
-2. 复制 `.env.example` 为 `.env` 并修改配置：
-   ```bash
-   cp .env.example .env
-   ```
-3. 编辑 `.env` 文件，至少需要修改以下配置：
-   ```env
-   # 站长账号配置（必填）
-   USERNAME=admin
-   PASSWORD=your_secure_password
-   
-   # 弹幕 API Token（建议修改）
-   DANMAKU_API_TOKEN=your_random_token
-   ```
-4. 启动所有服务：
-   ```bash
-   docker-compose up -d
-   ```
 
-#### 服务说明
+### Cloudflare Workers 部署（通过 GitHub Actions）
 
-启动后将包含以下服务：
+Cloudflare Workers 提供免费的边缘计算服务，通过 GitHub Actions 可以实现自动化部署。
 
-- **MoonTV 主服务**：`http://localhost:3000` - 影视聚合播放器主应用
-- **Kvrocks 存储**：用于存储播放记录、收藏等数据
-- **弹幕 API**：`http://localhost:9321` - 提供弹幕搜索和加载功能
-- **盘搜服务**：`http://localhost:8080` - 网盘资源搜索服务
+#### 前置要求
 
-所有服务在同一个 Docker 网络中，无需额外配置即可互相访问。
+1. 一个 Cloudflare 账号
+2. Fork 本项目到你的 GitHub 账号
+3. 准备一个 Upstash Redis 实例（推荐）
 
-#### 完整 docker-compose.yml 示例
+#### 配置步骤
 
-```yml
-services:
-  moontv-core:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: moontvplus:local
-    container_name: moontv-core
-    restart: on-failure
-    ports:
-      - '3000:3000'
-    env_file:
-      - .env
-    networks:
-      - moontv-network
-    depends_on:
-      - moontv-kvrocks
-      - danmu-api
-      - pansou
-  danmu-api:
-    image: logvar/danmu-api:latest
-    container_name: danmu-api
-    restart: unless-stopped
-    ports:
-      - '9321:9321'
-    environment:
-      - TOKEN=87654321
-      - ADMIN_TOKEN=test1234
-    networks:
-      - moontv-network
-  pansou:
-    image: ghcr.io/fish2018/pansou-web
-    container_name: pansou
-    restart: unless-stopped
-    ports:
-      - '8080:80'
-    networks:
-      - moontv-network
-  moontv-kvrocks:
-    image: apache/kvrocks
-    container_name: moontv-kvrocks
-    restart: unless-stopped
-    volumes:
-      - kvrocks-data:/var/lib/kvrocks
-    networks:
-      - moontv-network
-networks:
-  moontv-network:
-    driver: bridge
-volumes:
-  kvrocks-data:
+**1. 获取 Cloudflare API Token 和 Account ID**
+
+- 访问 [Cloudflare Dashboard](https://dash.cloudflare.com/)
+- 点击右上角头像 > My Profile > API Tokens
+- 点击 "Create Token"，选择 "Edit Cloudflare Workers" 模板
+- 或使用自定义 Token，需要以下权限：
+  - Account - Cloudflare Workers Scripts - Edit
+  - Account - Cloudflare Workers KV Storage - Edit
+- 创建后复制生成的 API Token
+- 在 Dashboard 首页右侧可以看到你的 Account ID
+
+**2. 配置 GitHub Secrets**
+
+进入你 Fork 的仓库，点击 Settings > Secrets and variables > Actions > New repository secret，添加以下必需的 Secrets：
+
+**必需配置：**
+
+| Secret 名称                | 说明                  | 示例值                   |
+| -------------------------- | --------------------- | ------------------------ |
+| `CLOUDFLARE_API_TOKEN`     | Cloudflare API Token  | `your_api_token_here`    |
+| `CLOUDFLARE_ACCOUNT_ID`    | Cloudflare Account ID | `abc123def456`           |
+| `USERNAME`                 | 站长账号              | `admin`                  |
+| `PASSWORD`                 | 站长密码              | `your_secure_password`   |
+| `NEXT_PUBLIC_STORAGE_TYPE` | 存储类型              | `upstash`                |
+| `UPSTASH_URL`              | Upstash Redis URL     | `https://xxx.upstash.io` |
+| `UPSTASH_TOKEN`            | Upstash Redis Token   | `your_upstash_token`     |
+
+**3. 触发部署**
+
+配置完成后，有两种方式触发部署：
+
+**方式一：手动触发**
+
+- 进入仓库的 Actions 页面
+- 选择 "Deploy to Cloudflare" workflow
+- 点击 "Run workflow" 按钮
+- 选择分支（通常是 main 或 dev）
+- 点击 "Run workflow" 开始部署
+
+**方式二：自动触发（可选）**
+
+如果想要在推送代码时自动部署，可以修改 `.github/workflows/cloudflare-deploy.yml` 文件：
+
+```yaml
+on:
+  push:
+    branches:
+      - main  # 或你的主分支名称
+  workflow_dispatch:
 ```
 
-### 其他存储方式部署
+**4. 查看部署状态**
 
-#### 使用 Redis 存储（有一定的丢数据风险）
+- 在 Actions 页面可以看到部署进度
+- 部署成功后，访问 `https://your-project-name.your-account.workers.dev`
+- 也可以在 Cloudflare Dashboard 的 Workers & Pages 中查看部署的应用
+
+**5. 绑定自定义域名（可选）**
+
+- 在 Cloudflare Dashboard 中进入你的 Worker
+- 点击 Settings > Triggers > Custom Domains
+- 添加你的自定义域名
+
+**6.配置外部定时任务（可选）**
+
+可使用外部定时请求/api/cron/mtvpls端点以触发定时任务，或新建一个workers请求触发，推荐每小时请求一次。
+
+---
+
+### Docker 部署
+
+#### Kvrocks 存储（推荐）
 
 ```yml
 services:
@@ -188,8 +188,6 @@ services:
     restart: on-failure
     ports:
       - '3000:3000'
-    env_file:
-      - .env
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
@@ -214,9 +212,7 @@ volumes:
   kvrocks-data:
 ```
 
-#### 使用 Redis 存储（有一定的丢数据风险）
-
-如果你想使用 Redis 替代 Kvrocks，修改 docker-compose.yml：
+### Redis 存储（有一定的丢数据风险）
 
 ```yml
 services:
@@ -226,8 +222,6 @@ services:
     restart: on-failure
     ports:
       - '3000:3000'
-    env_file:
-      - .env
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
@@ -251,13 +245,12 @@ networks:
     driver: bridge
 ```
 
-#### 使用 Upstash 存储
-
-如果你想使用 Upstash 云存储服务：
+### Upstash 存储
 
 1. 在 [upstash](https://upstash.com/) 注册账号并新建一个 Redis 实例，名称任意。
 2. 复制新数据库的 **HTTPS ENDPOINT 和 TOKEN**
 3. 使用如下 docker compose
+
 ```yml
 services:
   moontv-core:
@@ -266,8 +259,6 @@ services:
     restart: on-failure
     ports:
       - '3000:3000'
-    env_file:
-      - .env
     environment:
       - USERNAME=admin
       - PASSWORD=admin_password
@@ -278,7 +269,7 @@ services:
 
 ## 配置文件
 
-完成部署后为空壳应用，无播放源，需要站长在管理后台的配置文件设置中填写配置文件（后续会支持订阅）
+完成部署后为空壳应用，无播放源，需要站长在管理后台的配置文件设置中填写配置文件，本版本已不支持无数据库运行。
 
 配置文件示例如下：
 
@@ -331,75 +322,48 @@ dockge/komodo 等 docker compose UI 也有自动更新功能
 
 ## 环境变量
 
-### 基础配置
-
-| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
-| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| USERNAME                            | 站长账号           | 任意字符串                       | 无默认，必填字段                                                                                                                     |
-| PASSWORD                            | 站长密码           | 任意字符串                       | 无默认，必填字段                                                                                                                     |
-| SITE_BASE                           | 站点 url                                                     |       形如 https://example.com                  | 空                                                                                                                     |
-| NEXT_PUBLIC_SITE_NAME               | 站点名称                                     | 任意字符串                       | MoonTV                                                                                                                     |
-| ANNOUNCEMENT                        | 站点公告                                     | 任意字符串                       | 本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。 |
-
-### 存储配置
-
-| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
-| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| NEXT_PUBLIC_STORAGE_TYPE            | 播放记录/收藏的存储方式                      | redis、kvrocks、upstash | 无默认，必填字段                                                                                                               |
-| KVROCKS_URL                           | kvrocks 连接 url                               | 连接 url                         | 空                                                                                                                         |
-| REDIS_URL                           | redis 连接 url                               | 连接 url                         | 空                                                                                                                         |
-| UPSTASH_URL                         | upstash redis 连接 url                       | 连接 url                         | 空                                                                                                                         |
-| UPSTASH_TOKEN                       | upstash redis 连接 token                     | 连接 token                       | 空                                                                                                                         |
-
-### 弹幕配置
-
-使用 Docker Compose 一键部署时，弹幕服务已自动配置，无需手动设置 `DANMAKU_API_BASE`。
-
-| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
-| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| DANMAKU_API_BASE | 弹幕 API 服务地址 | URL | http://danmu-api:9321（Docker Compose 部署时自动配置） |
-| DANMAKU_API_TOKEN | 弹幕 API 访问 Token，需与弹幕服务的 TOKEN 环境变量一致 | 任意字符串 | 87654321 |
-| NEXT_PUBLIC_DANMAKU_CACHE_EXPIRE_MINUTES | 弹幕缓存失效时间（分钟数，设为 0 时不缓存） | 0 或正整数 | 4320（3天） |
-
-**弹幕服务配置说明：**
-- 弹幕服务使用 [logvar/danmu-api](https://github.com/huangxd-/danmu_api) 镜像
-- 默认端口：9321
-- 环境变量：
-  - `TOKEN`：API 访问令牌，需与 MoonTV 的 `DANMAKU_API_TOKEN` 一致
-  - `ADMIN_TOKEN`：管理员令牌，用于管理弹幕数据
-  - `SOURCE_ORDER` 或 `PLATFORM_ORDER`：建议配置以获取更多弹幕源
-
-### 盘搜配置
-
-使用 Docker Compose 一键部署时，盘搜服务已自动启动，访问地址为 `http://localhost:8080`。
-
-**盘搜服务说明：**
-- 盘搜服务使用 [ghcr.io/fish2018/pansou-web](https://github.com/fish2018/pansou-web) 镜像
-- 默认端口：8080（容器内为 80）
-- 无需额外配置，开箱即用
-
-### 其他功能配置
-
-### 其他功能配置
-
-| 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
-| ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| NEXT_PUBLIC_SEARCH_MAX_PAGE         | 搜索接口可拉取的最大页数                     | 1-50                             | 5                                                                                                                          |
-| NEXT_PUBLIC_DOUBAN_PROXY_TYPE       | 豆瓣数据源请求方式                           | 见下方                           | direct                                                                                                                     |
-| NEXT_PUBLIC_DOUBAN_PROXY            | 自定义豆瓣数据代理 URL                       | url prefix                       | (空)                                                                                                                       |
-| NEXT_PUBLIC_DOUBAN_IMAGE_PROXY_TYPE | 豆瓣图片代理类型                             | 见下方                           | direct                                                                                                                     |
-| NEXT_PUBLIC_DOUBAN_IMAGE_PROXY      | 自定义豆瓣图片代理 URL                       | url prefix                       | (空)                                                                                                                       |
-| NEXT_PUBLIC_DISABLE_YELLOW_FILTER   | 关闭色情内容过滤                             | true/false                       | false                                                                                                                      |
-| NEXT_PUBLIC_FLUID_SEARCH | 是否开启搜索接口流式输出 | true/ false | true |
-| NEXT_PUBLIC_PROXY_M3U8_TOKEN | M3U8 代理 API 鉴权 Token（外部播放器跳转时的鉴权token，不填为无鉴权） | 任意字符串 | (空) |
-| NEXT_PUBLIC_DANMAKU_CACHE_EXPIRE_MINUTES | 弹幕缓存失效时间（分钟数，设为 0 时不缓存） | 0 或正整数 | 4320（3天） |
-| ENABLE_TVBOX_SUBSCRIBE | 是否启用 TVBOX 订阅功能 | true/false | false |
-| TVBOX_SUBSCRIBE_TOKEN | TVBOX 订阅 API 访问 Token，如启用TVBOX功能必须设置该项 | 任意字符串 | (空) |
-| WATCH_ROOM_ENABLED | 是否启用观影室功能（vercel部署不支持该功能，后续可能会开发外部服务器） | true/false | false |
-| NEXT_PUBLIC_VOICE_CHAT_STRATEGY | 观影室语音聊天策略 | webrtc-fallback/server-only | webrtc-fallback |
-| NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD | 是否启用服务器离线下载功能（开启后也仅管理员和站长可用） | true/false | false |
-| OFFLINE_DOWNLOAD_DIR | 离线下载文件存储目录 | 任意有效路径 | /data |
-| VIDEOINFO_CACHE_MINUTES | 私人影库视频信息在内存中的缓存时长（分钟） | 正整数 | 1440（1天） |
+| 变量                                     | 说明                                                         | 可选值                      | 默认值                                                       |
+| ---------------------------------------- | ------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------ |
+| USERNAME                                 | 站长账号                                                     | 任意字符串                  | 无默认，必填字段                                             |
+| PASSWORD                                 | 站长密码                                                     | 任意字符串                  | 无默认，必填字段                                             |
+| CRON_PASSWORD                            | 定时任务 API 访问密码（用于保护 /api/cron 端点）             | 任意字符串                  | mtvpls                                                       |
+| SITE_BASE                                | 站点 url                                                     | 形如 https://example.com    | 空                                                           |
+| NEXT_PUBLIC_SITE_NAME                    | 站点名称                                                     | 任意字符串                  | MoonTV                                                       |
+| ANNOUNCEMENT                             | 站点公告                                                     | 任意字符串                  | 本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。 |
+| NEXT_PUBLIC_STORAGE_TYPE                 | 播放记录/收藏的存储方式                                      | redis、kvrocks、upstash     | 无默认，必填字段                                             |
+| KVROCKS_URL                              | kvrocks 连接 url                                             | 连接 url                    | 空                                                           |
+| REDIS_URL                                | redis 连接 url                                               | 连接 url                    | 空                                                           |
+| UPSTASH_URL                              | upstash redis 连接 url                                       | 连接 url                    | 空                                                           |
+| UPSTASH_TOKEN                            | upstash redis 连接 token                                     | 连接 token                  | 空                                                           |
+| NEXT_PUBLIC_SEARCH_MAX_PAGE              | 搜索接口可拉取的最大页数                                     | 1-50                        | 5                                                            |
+| NEXT_PUBLIC_DOUBAN_PROXY_TYPE            | 豆瓣数据源请求方式                                           | 见下方                      | direct                                                       |
+| NEXT_PUBLIC_DOUBAN_PROXY                 | 自定义豆瓣数据代理 URL                                       | url prefix                  | (空)                                                         |
+| NEXT_PUBLIC_DOUBAN_IMAGE_PROXY_TYPE      | 豆瓣图片代理类型                                             | 见下方                      | direct                                                       |
+| NEXT_PUBLIC_DOUBAN_IMAGE_PROXY           | 自定义豆瓣图片代理 URL                                       | url prefix                  | (空)                                                         |
+| NEXT_PUBLIC_DISABLE_YELLOW_FILTER        | 关闭色情内容过滤                                             | true/false                  | false                                                        |
+| NEXT_PUBLIC_FLUID_SEARCH                 | 是否开启搜索接口流式输出                                     | true/ false                 | true                                                         |
+| NEXT_PUBLIC_PROXY_M3U8_TOKEN             | M3U8 代理 API 鉴权 Token（外部播放器跳转时的鉴权token，不填为无鉴权） | 任意字符串                  | (空)                                                         |
+| NEXT_PUBLIC_DANMAKU_CACHE_EXPIRE_MINUTES | 弹幕缓存失效时间（分钟数，设为 0 时不缓存）                  | 0 或正整数                  | 4320（3天）                                                  |
+| ENABLE_TVBOX_SUBSCRIBE                   | 是否启用 TVBOX 订阅功能                                      | true/false                  | false                                                        |
+| TVBOX_SUBSCRIBE_TOKEN                    | TVBOX 订阅 API 访问 Token，如启用TVBOX功能必须设置该项       | 任意字符串                  | (空)                                                         |
+| TVBOX_BLOCKED_SOURCES                    | TVBOX 订阅屏蔽源列表（多个源用逗号分隔，匹配视频源的 key）   | 逗号分隔的源 key            | (空)                                                         |
+| WATCH_ROOM_ENABLED                       | 是否启用观影室功能（vercel部署不支持该功能，可使用外部服务器） | true/false                  | false                                                        |
+| WATCH_ROOM_SERVER_TYPE                   | 观影室服务器类型                                             | internal/external           | internal                                                     |
+| WATCH_ROOM_EXTERNAL_SERVER_URL           | 外部观影室服务器地址（当 SERVER_TYPE 为 external 时必填）    | WebSocket URL               | (空)                                                         |
+| WATCH_ROOM_EXTERNAL_SERVER_AUTH          | 外部观影室服务器认证令牌（当 SERVER_TYPE 为 external 时必填） | 任意字符串                  | (空)                                                         |
+| NEXT_PUBLIC_VOICE_CHAT_STRATEGY          | 观影室语音聊天策略                                           | webrtc-fallback/server-only | webrtc-fallback                                              |
+| NEXT_PUBLIC_ENABLE_OFFLINE_DOWNLOAD      | 是否启用服务器离线下载功能（开启后也仅管理员和站长可用）     | true/false                  | false                                                        |
+| OFFLINE_DOWNLOAD_DIR                     | 离线下载文件存储目录                                         | 任意有效路径                | /data                                                        |
+| VIDEOINFO_CACHE_MINUTES                  | 私人影库视频信息在内存中的缓存时长（分钟）                   | 正整数                      | 1440（1天）                                                  |
+| NEXT_PUBLIC_ENABLE_SOURCE_SEARCH         | 是否开启源站寻片功能                                         | true/false                  | true                                                         |
+| MAX_PLAY_RECORDS_PER_USER                | 单个用户播放记录清理阈值（超过此数量将自动清理旧记录）       | 正整数                      | 100                                                          |
+| INIT_CONFIG                              | 初始配置（JSON 格式，包含 api_site、custom_category、lives 等） | JSON 字符串                 | (空)                                                         |
+| CONFIG_SUBSCRIPTION_URL                  | 配置订阅 URL（Base58 编码的配置文件地址，优先级高于 INIT_CONFIG） | URL                         | (空)                                                         |
+| TMDB_API_KEY                             | TMDB API 密钥                                                | 任意字符串                  | (空)                                                         |
+| TMDB_PROXY                               | TMDB 代理地址                                                | URL                         | (空)                                                         |
+| TMDB_REVERSE_PROXY                       | TMDB 反向代理地址                                            | URL                         | (空)                                                         |
+| DANMAKU_API_BASE                         | 弹幕 API 地址                                                | URL                         | http://localhost:9321                                        |
+| DANMAKU_API_TOKEN                        | 弹幕 API Token                                               | 任意字符串                  | 87654321                                                     |
 
 NEXT_PUBLIC_DOUBAN_PROXY_TYPE 选项解释：
 
@@ -423,6 +387,27 @@ NEXT_PUBLIC_VOICE_CHAT_STRATEGY 选项解释：
 - webrtc-fallback：使用 WebRTC P2P 连接，失败时自动回退到服务器中转（推荐）
 - server-only：仅使用服务器中转（适用于无法建立 P2P 连接的网络环境）
 
+### 外部观影室服务器部署
+
+如果您在 Vercel 等无法运行 WebSocket 服务器的平台部署，或希望将观影室服务器独立部署，可以使用外部观影室服务器。
+
+推荐使用由 [tgs9915](https://github.com/tgs9915) 开发的 [watch-room-server](https://github.com/tgs9915/watch-room-server) 项目进行部署。
+
+**配置步骤：**
+
+1. 按照 [watch-room-server](https://github.com/tgs9915/watch-room-server) 的文档部署外部服务器
+
+2. 在 MoonTVPlus 中设置以下环境变量：
+
+   ```env
+   WATCH_ROOM_ENABLED=true
+   WATCH_ROOM_SERVER_TYPE=external
+   WATCH_ROOM_EXTERNAL_SERVER_URL=wss://your-watch-room-server.com
+   WATCH_ROOM_EXTERNAL_SERVER_AUTH=your_secure_token
+   ```
+
+3. 重启应用即可使用外部观影室服务器
+
 
 
 ## 弹幕后端部署
@@ -439,6 +424,7 @@ NEXT_PUBLIC_VOICE_CHAT_STRATEGY 选项解释：
 
 
 ##  超分功能说明
+
 超分功能需要浏览器支持webgpu并且你的浏览器环境不能是http（如非要在http中使用，需要在浏览器端设置允许不安全的内容）
 
 
@@ -457,13 +443,16 @@ NEXT_PUBLIC_VOICE_CHAT_STRATEGY 选项解释：
 ### 配置步骤
 
 1. 在环境变量中设置以下配置：
+
    ```env
    # 启用 TVBOX 订阅功能
    ENABLE_TVBOX_SUBSCRIBE=true
    # 设置订阅访问 Token（请使用强密码）
    TVBOX_SUBSCRIBE_TOKEN=your_secure_random_token
+   # 可选：屏蔽特定视频源（多个源用逗号分隔，填写视频源的 key）
+   TVBOX_BLOCKED_SOURCES=source1,source2
    ```
-   
+
 2. 重启应用后，登录网站，点击用户菜单中的"订阅"按钮
 
 3. 复制生成的订阅链接到 TVBOX 应用中使用
